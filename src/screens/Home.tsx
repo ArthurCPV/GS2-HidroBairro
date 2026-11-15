@@ -1,4 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
+import { DataSummary } from '@/components/DataSummary';
 import { RoutePlaceholder } from '@/components/RoutePlaceholder';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import type { HomeTabNavigationProp } from '@/types/navigation';
@@ -30,6 +31,7 @@ export default function HomeScreen() {
         },
       ]}
     >
+      <DataSummary />
       <ThemeSelector />
     </RoutePlaceholder>
   );
