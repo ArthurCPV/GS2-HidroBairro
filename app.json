@@ -3,6 +3,7 @@
     "name": "GS2-HidroBairro",
     "slug": "GS2-HidroBairro",
     "version": "1.0.0",
+    "scheme": "hidrobairro",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,6 +21,13 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar"
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
