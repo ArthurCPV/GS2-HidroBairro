@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Callout, Marker } from 'react-native-maps';
 import { useTheme } from '@/store/useTheme';
 import type { AlertSeverity } from '@/types/domain';
-import type { RiskMapProps } from './RiskMap.types';
+import type { RiskMapProps } from './RiskMapTypes';
 
 function getSeverityLabel(severity: AlertSeverity) {
   return severity === 'CRITICO' ? 'Crítico' : 'Atenção';
