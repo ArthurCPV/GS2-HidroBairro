@@ -14,6 +14,8 @@ export type AppTheme = {
     control: string;
     error: string;
     errorSurface: string;
+    warning: string;
+    warningSurface: string;
   };
   spacing: {
     page: number;
@@ -44,6 +46,8 @@ export const themes: Record<ColorScheme, AppTheme> = {
       control: '#EEF3F2',
       error: '#A33B32',
       errorSurface: '#FDECEA',
+      warning: '#805600',
+      warningSurface: '#FFF3D6',
     },
     spacing: { page: 24, element: 16, compact: 12 },
     radius: { control: 12 },
@@ -62,6 +66,8 @@ export const themes: Record<ColorScheme, AppTheme> = {
       control: '#202C29',
       error: '#FFB4AB',
       errorSurface: '#442824',
+      warning: '#F2C66D',
+      warningSurface: '#453710',
     },
     spacing: { page: 24, element: 16, compact: 12 },
     radius: { control: 12 },

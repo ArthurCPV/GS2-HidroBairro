@@ -24,7 +24,13 @@
     },
     "plugins": [
       "expo-status-bar",
-      "expo-system-ui"
+      "expo-system-ui",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Sua localização será usada somente para centralizar o mapa enquanto você usa o HidroBairro."
+        }
+      ]
     ]
   }
 }

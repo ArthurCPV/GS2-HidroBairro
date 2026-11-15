@@ -1,4 +1,5 @@
 export type { RouteLink } from './navigation';
+export type { MapViewport } from './map';
 export type {
   AlertSeverity,
   AlertStatus,
