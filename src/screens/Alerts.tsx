@@ -1,7 +1,10 @@
+import { useNavigation } from '@react-navigation/native';
 import { RoutePlaceholder } from '@/components/RoutePlaceholder';
-import { APP_ROUTES } from '@/constants/routes';
+import type { HomeTabNavigationProp } from '@/types/navigation';
 
 export default function AlertsScreen() {
+  const navigation = useNavigation<HomeTabNavigationProp<'Alerts'>>();
+
   return (
     <RoutePlaceholder
       title="Alertas"
@@ -9,7 +12,7 @@ export default function AlertsScreen() {
       links={[
         {
           label: 'Abrir detalhe de demonstração',
-          href: APP_ROUTES.alertDetails('demo'),
+          onPress: () => navigation.navigate('AlertDetails', { id: 'demo' }),
         },
       ]}
     />

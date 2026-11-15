@@ -1,22 +1,70 @@
-export const theme = {
+export type ThemeMode = 'system' | 'light' | 'dark';
+export type ColorScheme = Exclude<ThemeMode, 'system'>;
+
+export type AppTheme = {
   colors: {
-    background: '#FFFFFF',
-    heading: '#183B3A',
-    body: '#526563',
-    action: '#14665F',
-    actionSurface: '#E8F4F1',
-  },
+    background: string;
+    surface: string;
+    heading: string;
+    body: string;
+    muted: string;
+    action: string;
+    actionSurface: string;
+    border: string;
+    control: string;
+    error: string;
+    errorSurface: string;
+  };
   spacing: {
-    page: 24,
-    element: 16,
-    compact: 12,
-  },
+    page: number;
+    element: number;
+    compact: number;
+  };
   radius: {
-    control: 12,
-  },
+    control: number;
+  };
   typography: {
-    heading: 28,
-    body: 16,
-    bodyLine: 24,
+    heading: number;
+    body: number;
+    bodyLine: number;
+  };
+};
+
+export const themes: Record<ColorScheme, AppTheme> = {
+  light: {
+    colors: {
+      background: '#F5F8F7',
+      surface: '#FFFFFF',
+      heading: '#183B3A',
+      body: '#526563',
+      muted: '#71817F',
+      action: '#14665F',
+      actionSurface: '#E8F4F1',
+      border: '#DCE7E5',
+      control: '#EEF3F2',
+      error: '#A33B32',
+      errorSurface: '#FDECEA',
+    },
+    spacing: { page: 24, element: 16, compact: 12 },
+    radius: { control: 12 },
+    typography: { heading: 28, body: 16, bodyLine: 24 },
   },
-} as const;
+  dark: {
+    colors: {
+      background: '#101817',
+      surface: '#192321',
+      heading: '#E8F3F0',
+      body: '#B7C8C3',
+      muted: '#94A9A2',
+      action: '#7DD4C4',
+      actionSurface: '#203F39',
+      border: '#31423E',
+      control: '#202C29',
+      error: '#FFB4AB',
+      errorSurface: '#442824',
+    },
+    spacing: { page: 24, element: 16, compact: 12 },
+    radius: { control: 12 },
+    typography: { heading: 28, body: 16, bodyLine: 24 },
+  },
+};

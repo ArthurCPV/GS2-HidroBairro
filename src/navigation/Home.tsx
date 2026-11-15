@@ -1,13 +1,54 @@
-import { Tabs } from 'expo-router';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useTheme } from '@/store/useTheme';
+import type { HomeTabParamList } from '@/types/navigation';
+import AIScreen from '@/screens/AI';
+import AlertsScreen from '@/screens/Alerts';
+import HomeScreen from '@/screens/Home';
+import MapScreen from '@/screens/Map';
+import RequestsScreen from '@/screens/Requests';
+
+const Tab = createBottomTabNavigator<HomeTabParamList>();
 
 export default function HomeNavigation() {
+  const { theme } = useTheme();
+
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="index" options={{ title: 'Início' }} />
-      <Tabs.Screen name="map" options={{ title: 'Mapa' }} />
-      <Tabs.Screen name="alerts" options={{ title: 'Alertas' }} />
-      <Tabs.Screen name="guidance" options={{ title: 'Orientação' }} />
-      <Tabs.Screen name="requests" options={{ title: 'Solicitações' }} />
-    </Tabs>
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarIcon: () => null,
+        tabBarShowLabel: true,
+        tabBarActiveTintColor: theme.colors.action,
+        tabBarInactiveTintColor: theme.colors.muted,
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.border,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: { fontWeight: '600' },
+      }}
+    >
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ title: 'Início' }}
+      />
+      <Tab.Screen name="Map" component={MapScreen} options={{ title: 'Mapa' }} />
+      <Tab.Screen
+        name="Alerts"
+        component={AlertsScreen}
+        options={{ title: 'Alertas' }}
+      />
+      <Tab.Screen
+        name="Guidance"
+        component={AIScreen}
+        options={{ title: 'Orientação' }}
+      />
+      <Tab.Screen
+        name="Requests"
+        component={RequestsScreen}
+        options={{ title: 'Solicitações' }}
+      />
+    </Tab.Navigator>
   );
 }

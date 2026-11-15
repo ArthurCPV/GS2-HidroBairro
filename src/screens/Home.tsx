@@ -1,18 +1,36 @@
+import { useNavigation } from '@react-navigation/native';
 import { RoutePlaceholder } from '@/components/RoutePlaceholder';
-import { APP_ROUTES } from '@/constants/routes';
+import { ThemeSelector } from '@/components/ThemeSelector';
+import type { HomeTabNavigationProp } from '@/types/navigation';
 
 export default function HomeScreen() {
+  const navigation = useNavigation<HomeTabNavigationProp<'Home'>>();
+
   return (
     <RoutePlaceholder
       title="HidroBairro Sul"
-      description="Estrutura inicial do aplicativo para o piloto da Zona Sul de São Paulo."
+      description="Acompanhe alertas e pontos de monitoramento do piloto na Zona Sul de São Paulo."
       links={[
-        { label: 'Abrir mapa', href: APP_ROUTES.map },
-        { label: 'Consultar alertas', href: APP_ROUTES.alerts },
-        { label: 'Ver orientação', href: APP_ROUTES.guidance },
-        { label: 'Minhas solicitações', href: APP_ROUTES.requests },
-        { label: 'Nova solicitação', href: APP_ROUTES.newRequest },
+        { label: 'Abrir mapa', onPress: () => navigation.navigate('Map') },
+        {
+          label: 'Consultar alertas',
+          onPress: () => navigation.navigate('Alerts'),
+        },
+        {
+          label: 'Ver orientação',
+          onPress: () => navigation.navigate('Guidance'),
+        },
+        {
+          label: 'Minhas solicitações',
+          onPress: () => navigation.navigate('Requests'),
+        },
+        {
+          label: 'Nova solicitação',
+          onPress: () => navigation.navigate('NewRequest'),
+        },
       ]}
-    />
+    >
+      <ThemeSelector />
+    </RoutePlaceholder>
   );
 }
