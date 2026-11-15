@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import AlertDetailsScreen from './src/screens/AlertDetails';
 import NewRequestScreen from './src/screens/NewRequest';
+import RequestDetailsScreen from './src/screens/RequestDetails';
 import Home from './src/navigation/Home';
 import { ThemeProvider } from './src/store/ThemeProvider';
 import { useTheme } from './src/store/useTheme';
@@ -56,12 +57,20 @@ function AppNavigation() {
           <Stack.Screen
             name="AlertDetails"
             component={AlertDetailsScreen}
-            options={{ title: 'Detalhe do alerta' }}
+            options={{ headerShown: false, title: 'Detalhe do alerta' }}
           />
           <Stack.Screen
             name="NewRequest"
             component={NewRequestScreen}
-            options={{ title: 'Nova solicitação' }}
+            options={{ headerShown: false, title: 'Nova solicitação' }}
+          />
+          <Stack.Screen
+            name="RequestDetails"
+            component={RequestDetailsScreen}
+            options={{
+              headerShown: false,
+              title: 'Detalhe da solicitação',
+            }}
           />
         </Stack.Navigator>
       </NavigationContainer>

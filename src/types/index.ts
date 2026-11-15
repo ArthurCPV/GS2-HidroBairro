@@ -13,8 +13,10 @@ export type {
   MonitoringPoint,
   MonitoringZone,
   RequestCategory,
+  RequestStatusHistory,
   RequestStatus,
   SensorReadingOrigin,
   ServiceRequest,
+  ServiceRequestDraft,
   WaterLevelReading,
 } from './domain';

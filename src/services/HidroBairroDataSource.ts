@@ -3,7 +3,6 @@ import {
   DEMO_GUIDANCE_ITEMS,
   DEMO_MONITORING_POINTS,
   DEMO_REQUEST_CATEGORIES,
-  DEMO_SERVICE_REQUESTS,
   DEMO_WATER_LEVEL_READINGS,
 } from '@/data/demoData';
 import type {
@@ -12,9 +11,12 @@ import type {
   GuidanceItem,
   MonitoringPoint,
   RequestCategory,
+  RequestStatusHistory,
   ServiceRequest,
+  ServiceRequestDraft,
   WaterLevelReading,
 } from '@/types/domain';
+import { serviceRequestRepository } from '@/services/ServiceRequestRepository';
 
 const DEMO_NOTICE =
   'Todos os registros são demonstrativos. Coordenadas, limiares, leituras e alertas são fictícios e não representam sensores, ocorrências ou risco atual.';
@@ -32,6 +34,19 @@ export interface GuidanceDataSource {
 export interface ServiceRequestDataSource {
   listRequestCategories(): Promise<DataCollection<readonly RequestCategory[]>>;
   listServiceRequests(): Promise<DataCollection<readonly ServiceRequest[]>>;
+  listRequestHistory(
+    requestId: number,
+  ): Promise<DataCollection<readonly RequestStatusHistory[]>>;
+  createServiceRequest(
+    draft: ServiceRequestDraft,
+  ): Promise<DataCollection<ServiceRequest>>;
+  updateServiceRequest(
+    requestId: number,
+    draft: ServiceRequestDraft,
+  ): Promise<DataCollection<ServiceRequest>>;
+  cancelServiceRequest(
+    requestId: number,
+  ): Promise<DataCollection<ServiceRequest>>;
 }
 
 export type HidroBairroDataSource = MonitoringDataSource &
@@ -39,6 +54,14 @@ export type HidroBairroDataSource = MonitoringDataSource &
   ServiceRequestDataSource;
 
 function collection<T>(data: readonly T[]): DataCollection<readonly T[]> {
+  return {
+    data,
+    provider: 'DEMONSTRACAO',
+    notice: DEMO_NOTICE,
+  };
+}
+
+function itemCollection<T>(data: T): DataCollection<T> {
   return {
     data,
     provider: 'DEMONSTRACAO',
@@ -63,7 +86,21 @@ const demoDataSource: HidroBairroDataSource = {
     return collection(DEMO_REQUEST_CATEGORIES);
   },
   async listServiceRequests() {
-    return collection(DEMO_SERVICE_REQUESTS);
+    return collection(await serviceRequestRepository.list());
+  },
+  async listRequestHistory(requestId) {
+    return collection(await serviceRequestRepository.listHistory(requestId));
+  },
+  async createServiceRequest(draft) {
+    return itemCollection(await serviceRequestRepository.create(draft));
+  },
+  async updateServiceRequest(requestId, draft) {
+    return itemCollection(
+      await serviceRequestRepository.update(requestId, draft),
+    );
+  },
+  async cancelServiceRequest(requestId) {
+    return itemCollection(await serviceRequestRepository.cancel(requestId));
   },
 };
 

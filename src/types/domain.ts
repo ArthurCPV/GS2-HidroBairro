@@ -81,6 +81,24 @@ export interface ServiceRequest {
   updatedAt: string;
 }
 
+export interface RequestStatusHistory {
+  id: number;
+  requestId: number;
+  previousStatus: RequestStatus | null;
+  newStatus: RequestStatus;
+  userId: number;
+  observation: string | null;
+  createdAt: string;
+}
+
+export interface ServiceRequestDraft {
+  categoryId: number;
+  pointId: number;
+  title: string;
+  description: string;
+  location: Coordinates;
+}
+
 export interface DataCollection<T> {
   data: T;
   provider: DataProvider;

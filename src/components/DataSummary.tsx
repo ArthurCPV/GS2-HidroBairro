@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { StyleSheet, Text, View } from 'react-native';
 import { hidroBairroDataSource } from '@/services/HidroBairroDataSource';
 import { useTheme } from '@/store/useTheme';
@@ -90,55 +91,64 @@ export function DataSummary() {
     [theme],
   );
 
-  useEffect(() => {
-    let isMounted = true;
+  useFocusEffect(
+    useCallback(() => {
+      let isFocused = true;
+      setState({ status: 'loading' });
 
-    async function loadSummary() {
-      try {
-        const [points, alerts, requests] = await Promise.all([
-          hidroBairroDataSource.listMonitoringPoints(),
-          hidroBairroDataSource.listAlerts(),
-          hidroBairroDataSource.listServiceRequests(),
-        ]);
+      async function loadSummary() {
+        try {
+          const [points, alerts, requests] = await Promise.all([
+            hidroBairroDataSource.listMonitoringPoints(),
+            hidroBairroDataSource.listAlerts(),
+            hidroBairroDataSource.listServiceRequests(),
+          ]);
 
-        if (!isMounted) {
-          return;
-        }
+          if (!isFocused) {
+            return;
+          }
 
-        const providers = [points.provider, alerts.provider, requests.provider];
-        const notices = [points.notice, alerts.notice, requests.notice].filter(
-          (notice): notice is string => Boolean(notice),
-        );
+          const providers = [
+            points.provider,
+            alerts.provider,
+            requests.provider,
+          ];
+          const notices = [
+            points.notice,
+            alerts.notice,
+            requests.notice,
+          ].filter((notice): notice is string => Boolean(notice));
 
-        setState({
-          status: 'ready',
-          summary: {
-            monitoringPoints: points.data.length,
-            activeAlerts: alerts.data.filter(
-              (alert) => alert.status === 'ATIVO',
-            ).length,
-            openRequests: requests.data.filter(
-              (request) =>
-                request.status === 'RECEBIDA' ||
-                request.status === 'EM_VISTORIA',
-            ).length,
-            provider: getProviderLabel(providers),
-            notice: [...new Set(notices)].join(' '),
-          },
-        });
-      } catch (error) {
-        console.error('Não foi possível carregar o resumo do piloto.', error);
-        if (isMounted) {
-          setState({ status: 'error' });
+          setState({
+            status: 'ready',
+            summary: {
+              monitoringPoints: points.data.length,
+              activeAlerts: alerts.data.filter(
+                (alert) => alert.status === 'ATIVO',
+              ).length,
+              openRequests: requests.data.filter(
+                (request) =>
+                  request.status === 'RECEBIDA' ||
+                  request.status === 'EM_VISTORIA',
+              ).length,
+              provider: getProviderLabel(providers),
+              notice: [...new Set(notices)].join(' '),
+            },
+          });
+        } catch (error) {
+          console.error('Não foi possível carregar o resumo do piloto.', error);
+          if (isFocused) {
+            setState({ status: 'error' });
+          }
         }
       }
-    }
 
-    void loadSummary();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      void loadSummary();
+      return () => {
+        isFocused = false;
+      };
+    }, []),
+  );
 
   return (
     <View style={styles.container}>

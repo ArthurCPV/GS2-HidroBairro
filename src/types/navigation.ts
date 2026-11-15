@@ -16,7 +16,8 @@ export type HomeTabParamList = {
 export type RootStackParamList = {
   Main: NavigatorScreenParams<HomeTabParamList> | undefined;
   AlertDetails: { id: string };
-  NewRequest: undefined;
+  NewRequest: { requestId?: number } | undefined;
+  RequestDetails: { id: string };
 };
 
 export type HomeTabNavigationProp<
