@@ -1,41 +1,15 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { useMemo, useState } from 'react';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ActionButton } from '@/components/ActionButton';
 import { ScreenFrame } from '@/components/ScreenFrame';
 import { SurfaceCard } from '@/components/SurfaceCard';
 import { hidroBairroDataSource } from '@/services/HidroBairroDataSource';
 import { useTheme } from '@/store/useTheme';
-import type { GuidanceCategory, GuidanceItem } from '@/types/domain';
 
-type GuidanceState =
-  | { status: 'loading' }
-  | { status: 'error'; message: string }
-  | {
-      status: 'ready';
-      items: readonly GuidanceItem[];
-      notice: string | null;
-    };
-
-const CATEGORIES: readonly {
-  id: GuidanceCategory;
-  label: string;
-}[] = [
-  { id: 'PREVENCAO', label: 'Prevenção' },
-  { id: 'DURANTE_CHUVA', label: 'Durante chuva' },
-  { id: 'POS_CHUVA', label: 'Após a chuva' },
-];
+const QUESTION_LIMIT = 1000;
 
 export default function AIScreen() {
   const { theme } = useTheme();
-  const [category, setCategory] = useState<GuidanceCategory>('PREVENCAO');
-  const [state, setState] = useState<GuidanceState>({ status: 'loading' });
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [isAsking, setIsAsking] = useState(false);
@@ -43,35 +17,10 @@ export default function AIScreen() {
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        filters: {
-          gap: 8,
-        },
-        filter: {
-          minHeight: 44,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingHorizontal: theme.spacing.compact,
-          borderWidth: 1,
-          borderColor: theme.colors.border,
-          borderRadius: theme.radius.control,
-          backgroundColor: theme.colors.surface,
-        },
-        filterSelected: {
-          borderColor: theme.colors.action,
-          backgroundColor: theme.colors.actionSurface,
-        },
-        filterText: {
-          color: theme.colors.body,
-          fontSize: 14,
-          fontWeight: '600',
-        },
-        filterTextSelected: {
-          color: theme.colors.action,
-        },
         badge: {
           alignSelf: 'flex-start',
-          paddingHorizontal: 9,
-          paddingVertical: 5,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
           borderRadius: 999,
           backgroundColor: theme.colors.actionSurface,
         },
@@ -79,79 +28,58 @@ export default function AIScreen() {
           color: theme.colors.action,
           fontSize: 11,
           fontWeight: '700',
-          letterSpacing: 0.3,
+          letterSpacing: 0.4,
           textTransform: 'uppercase',
+        },
+        content: {
+          gap: theme.spacing.compact,
         },
         title: {
           color: theme.colors.heading,
-          fontSize: 17,
+          fontSize: 20,
           fontWeight: '700',
+          lineHeight: 27,
         },
         body: {
           color: theme.colors.body,
           fontSize: 14,
           lineHeight: 21,
         },
-        updated: {
-          color: theme.colors.muted,
-          fontSize: 12,
-        },
-        notice: {
-          color: theme.colors.muted,
-          fontSize: 12,
-          lineHeight: 18,
-        },
-        error: {
-          color: theme.colors.error,
-          fontSize: 14,
-          lineHeight: 20,
-        },
-        empty: {
-          color: theme.colors.body,
-          fontSize: 14,
-          lineHeight: 20,
-        },
         field: {
-          minHeight: 96,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
+          minHeight: 120,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
           borderWidth: 1,
           borderColor: theme.colors.border,
           borderRadius: theme.radius.control,
           color: theme.colors.heading,
           backgroundColor: theme.colors.control,
           fontSize: 15,
+          lineHeight: 22,
           textAlignVertical: 'top',
+        },
+        counter: {
+          color: theme.colors.muted,
+          fontSize: 12,
+          textAlign: 'right',
+        },
+        error: {
+          color: theme.colors.error,
+          fontSize: 14,
+          lineHeight: 20,
+        },
+        response: {
+          color: theme.colors.body,
+          fontSize: 15,
+          lineHeight: 24,
+        },
+        responseStatus: {
+          color: theme.colors.muted,
+          fontSize: 13,
+          lineHeight: 19,
         },
       }),
     [theme],
-  );
-
-  const loadGuidance = useCallback(async () => {
-    setState({ status: 'loading' });
-    try {
-      const result = await hidroBairroDataSource.listGuidanceItems();
-      setState({
-        status: 'ready',
-        items: result.data,
-        notice: result.provider === 'DEMONSTRACAO' ? result.notice ?? null : null,
-      });
-    } catch (error) {
-      console.error('Não foi possível carregar as orientações.', error);
-      setState({
-        status: 'error',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível carregar o conteúdo.',
-      });
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadGuidance();
-    }, [loadGuidance]),
   );
 
   async function submitQuestion() {
@@ -179,115 +107,73 @@ export default function AIScreen() {
     }
   }
 
-  const visibleItems =
-    state.status === 'ready'
-      ? state.items.filter((item) => item.category === category)
-      : [];
-
   return (
     <ScreenFrame
-      title="Orientação"
-      description="Recomendações gerais para prevenção e cuidado durante e após chuvas."
+      title="Orientação por IA"
+      description="Tire dúvidas sobre chuva e monitoramento com informações consultadas pela API Java."
     >
       <SurfaceCard>
-        <Text style={styles.title}>Orientações do HidroBairro</Text>
-        <Text style={styles.body}>
-          Faça uma pergunta sobre prevenção e cuidados com chuva. As respostas
-          da IA são informativas e não substituem alertas ou instruções das
-          autoridades.
-        </Text>
-        <TextInput
-          accessibilityLabel="Pergunta para a orientação do HidroBairro"
-          autoCapitalize="sentences"
-          maxLength={1000}
-          multiline
-          onChangeText={setQuestion}
-          placeholder="Ex.: Como me preparar para chuva forte?"
-          placeholderTextColor={theme.colors.muted}
-          style={styles.field}
-          value={question}
-        />
-        <ActionButton
-          label={isAsking ? 'Consultando...' : 'Perguntar'}
-          onPress={() => void submitQuestion()}
-          disabled={isAsking}
-        />
-        {questionError ? (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {questionError}
+        <View style={styles.content}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>Assistente HidroBairro</Text>
+          </View>
+          <Text style={styles.title}>O que você gostaria de saber?</Text>
+          <Text style={styles.body}>
+            Pergunte sobre uma região, um ponto monitorado ou como agir diante
+            de um alerta.
           </Text>
-        ) : null}
-        {answer ? <Text style={styles.body}>{answer}</Text> : null}
+          <TextInput
+            accessibilityLabel="Pergunta para a orientação do HidroBairro"
+            autoCapitalize="sentences"
+            maxLength={QUESTION_LIMIT}
+            multiline
+            onChangeText={setQuestion}
+            placeholder="Ex.: Há algum alerta ativo perto do Terminal Campo Limpo?"
+            placeholderTextColor={theme.colors.muted}
+            style={styles.field}
+            value={question}
+          />
+          <Text style={styles.counter}>
+            {question.length}/{QUESTION_LIMIT}
+          </Text>
+          {questionError ? (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {questionError}
+            </Text>
+          ) : null}
+          <ActionButton
+            label={isAsking ? 'Consultando o sistema...' : 'Perguntar à IA'}
+            onPress={() => void submitQuestion()}
+            disabled={isAsking}
+          />
+          <Text style={styles.responseStatus}>
+            As respostas são informativas e não substituem alertas oficiais ou
+            instruções de emergência.
+          </Text>
+        </View>
       </SurfaceCard>
 
-      <View style={styles.filters}>
-        {CATEGORIES.map((item) => (
-          <Pressable
-            key={item.id}
-            accessibilityRole="button"
-            accessibilityState={{ selected: category === item.id }}
-            onPress={() => setCategory(item.id)}
-            style={[
-              styles.filter,
-              category === item.id && styles.filterSelected,
-            ]}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                category === item.id && styles.filterTextSelected,
-              ]}
-            >
-              {item.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      {isAsking ? (
+        <SurfaceCard>
+          <Text style={styles.badgeText}>Consultando dados atuais</Text>
+          <Text style={styles.responseStatus}>
+            A IA está preparando uma orientação com base nas informações do
+            sistema.
+          </Text>
+        </SurfaceCard>
+      ) : null}
 
-      {state.status === 'loading' && (
-        <Text style={styles.empty}>Carregando orientações...</Text>
-      )}
-      {state.status === 'error' && (
+      {answer ? (
         <SurfaceCard>
-          <Text accessibilityRole="alert" style={styles.error}>
-            {state.message}
-          </Text>
-          <ActionButton
-            label="Tentar novamente"
-            onPress={() => void loadGuidance()}
-            variant="secondary"
-          />
-        </SurfaceCard>
-      )}
-      {state.status === 'ready' && visibleItems.length === 0 && (
-        <SurfaceCard>
-          <Text style={styles.empty}>
-            Ainda não há orientações nesta categoria.
-          </Text>
-        </SurfaceCard>
-      )}
-      {state.status === 'ready' &&
-        visibleItems.map((item) => (
-          <SurfaceCard key={item.id}>
+          <View style={styles.content}>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {item.source === 'DEMONSTRACAO'
-                  ? 'Demonstrativo'
-                  : item.source === 'IA'
-                    ? 'IA'
-                    : 'Documentação'}
-              </Text>
+              <Text style={styles.badgeText}>Resposta da IA</Text>
             </View>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.body}>{item.content}</Text>
-            <Text style={styles.updated}>
-              Atualizado em{' '}
-              {new Date(item.updatedAt).toLocaleDateString('pt-BR')}
+            <Text accessibilityLiveRegion="polite" style={styles.response}>
+              {answer}
             </Text>
-          </SurfaceCard>
-        ))}
-      {state.status === 'ready' && state.notice ? (
-        <Text style={styles.notice}>{state.notice}</Text>
+          </View>
+        </SurfaceCard>
       ) : null}
     </ScreenFrame>
   );

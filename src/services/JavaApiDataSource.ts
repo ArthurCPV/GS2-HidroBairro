@@ -1,10 +1,6 @@
-import {
-  DEMO_GUIDANCE_ITEMS,
-} from '@/data/demoData';
 import type {
   DataCollection,
   FloodAlert,
-  GuidanceItem,
   MonitoringPoint,
   WaterLevelReading,
 } from '@/types/domain';
@@ -132,15 +128,6 @@ export const javaApiDataSource = {
       'alertas',
       mapAlert,
     );
-  },
-
-  listGuidanceItems(): DataCollection<readonly GuidanceItem[]> {
-    return {
-      data: DEMO_GUIDANCE_ITEMS,
-      provider: 'DEMONSTRACAO',
-      notice:
-        'As recomendações são conteúdo educativo demonstrativo. As respostas da IA são geradas na API Java.',
-    };
   },
 
   async askGuidance(

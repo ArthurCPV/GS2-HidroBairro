@@ -163,7 +163,7 @@ export function DataSummary() {
   return (
     <View style={styles.container}>
       <Text accessibilityRole="header" style={styles.title}>
-        Visão geral do piloto
+        Visão geral do sistema
       </Text>
       {state.status === 'loading' && (
         <Text style={styles.metricLabel}>Carregando dados...</Text>
@@ -181,7 +181,7 @@ export function DataSummary() {
               <Text style={styles.metricValue}>
                 {state.summary.monitoringPoints}
               </Text>
-              <Text style={styles.metricLabel}>Pontos</Text>
+              <Text style={styles.metricLabel}>Pontos monitorados</Text>
             </View>
             <View style={styles.metric}>
               <Text style={styles.metricValue}>

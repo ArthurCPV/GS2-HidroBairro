@@ -7,10 +7,7 @@ import { SurfaceCard } from '@/components/SurfaceCard';
 import { hidroBairroDataSource } from '@/services/HidroBairroDataSource';
 import { useAuth } from '@/store/AuthProvider';
 import { useTheme } from '@/store/useTheme';
-import type {
-  RequestCategory,
-  ServiceRequest,
-} from '@/types/domain';
+import type { RequestStatus, ServiceRequest } from '@/types/domain';
 import type { HomeTabNavigationProp } from '@/types/navigation';
 
 type RequestsState =
@@ -30,6 +27,16 @@ const STATUS_LABELS: Record<ServiceRequest['status'], string> = {
   CANCELADA: 'Cancelada',
 };
 
+type RequestFilter = RequestStatus | 'TODAS';
+
+const STATUS_FILTERS: readonly { value: RequestFilter; label: string }[] = [
+  { value: 'TODAS', label: 'Todas' },
+  { value: 'RECEBIDA', label: STATUS_LABELS.RECEBIDA },
+  { value: 'EM_VISTORIA', label: STATUS_LABELS.EM_VISTORIA },
+  { value: 'CONCLUIDA', label: STATUS_LABELS.CONCLUIDA },
+  { value: 'CANCELADA', label: STATUS_LABELS.CANCELADA },
+];
+
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString('pt-BR');
 }
@@ -41,6 +48,7 @@ export default function RequestsScreen() {
   const isManager =
     session.status === 'authenticated' && session.user.role === 'GESTOR';
   const [state, setState] = useState<RequestsState>({ status: 'loading' });
+  const [statusFilter, setStatusFilter] = useState<RequestFilter>('TODAS');
   const [updatingRequestId, setUpdatingRequestId] = useState<number | null>(
     null,
   );
@@ -58,8 +66,37 @@ export default function RequestsScreen() {
           color: theme.colors.muted,
           fontSize: 13,
         },
-        cardPressable: {
-          gap: theme.spacing.compact,
+        filterLabel: {
+          color: theme.colors.body,
+          fontSize: 13,
+          fontWeight: '600',
+        },
+        filters: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 8,
+        },
+        filter: {
+          minHeight: 40,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 12,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+          borderRadius: theme.radius.control,
+          backgroundColor: theme.colors.surface,
+        },
+        filterSelected: {
+          borderColor: theme.colors.action,
+          backgroundColor: theme.colors.actionSurface,
+        },
+        filterText: {
+          color: theme.colors.body,
+          fontSize: 13,
+          fontWeight: '600',
+        },
+        filterTextSelected: {
+          color: theme.colors.action,
         },
         title: {
           color: theme.colors.heading,
@@ -121,20 +158,20 @@ export default function RequestsScreen() {
     try {
       const requests = await hidroBairroDataSource.listServiceRequests(
         !isManager,
+        isManager && statusFilter !== 'TODAS' ? statusFilter : undefined,
       );
-      const categories =
-        requests.provider === 'DEMONSTRACAO'
-          ? await hidroBairroDataSource.listRequestCategories()
-          : null;
+      const categories = new Map<number, string>();
+      if (requests.provider === 'DEMONSTRACAO') {
+        const categoryResult =
+          await hidroBairroDataSource.listRequestCategories();
+        for (const category of categoryResult.data) {
+          categories.set(category.id, category.name);
+        }
+      }
       setState({
         status: 'ready',
         requests: requests.data,
-        categories: new Map(
-          categories?.data.map((category: RequestCategory) => [
-            category.id,
-            category.name,
-          ]),
-        ),
+        categories,
         notice:
           requests.provider === 'DEMONSTRACAO'
             ? requests.notice ?? 'Os registros são demonstrativos.'
@@ -150,7 +187,7 @@ export default function RequestsScreen() {
             : 'Não foi possível carregar as solicitações.',
       });
     }
-  }, [isManager]);
+  }, [isManager, statusFilter]);
 
   async function advanceRequestStatus(request: ServiceRequest) {
     const nextStatus =
@@ -205,6 +242,36 @@ export default function RequestsScreen() {
           onPress={() => navigation.navigate('NewRequest')}
         />
       ) : null}
+      {isManager ? (
+        <>
+          <Text style={styles.filterLabel}>Filtrar solicitações por status</Text>
+          <View style={styles.filters}>
+            {STATUS_FILTERS.map((filter) => (
+              <Pressable
+                key={filter.value}
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected: statusFilter === filter.value,
+                }}
+                onPress={() => setStatusFilter(filter.value)}
+                style={[
+                  styles.filter,
+                  statusFilter === filter.value && styles.filterSelected,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    statusFilter === filter.value && styles.filterTextSelected,
+                  ]}
+                >
+                  {filter.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </>
+      ) : null}
       {state.status === 'loading' && (
         <Text style={styles.emptyBody}>Carregando solicitações...</Text>
       )}
@@ -228,7 +295,11 @@ export default function RequestsScreen() {
       {state.status === 'ready' && state.requests.length === 0 && (
         <SurfaceCard>
           <Text style={styles.emptyTitle}>
-            {isManager ? 'Nenhuma solicitação na fila' : 'Sua lista está vazia'}
+            {isManager
+              ? statusFilter === 'TODAS'
+                ? 'Nenhuma solicitação na fila'
+                : `Nenhuma solicitação ${STATUS_LABELS[statusFilter].toLocaleLowerCase('pt-BR')}`
+              : 'Sua lista está vazia'}
           </Text>
           <Text style={styles.emptyBody}>
             {isManager
@@ -248,51 +319,51 @@ export default function RequestsScreen() {
       {state.status === 'ready' &&
         state.requests.map((request) => (
           <View key={request.id}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() =>
-              navigation.navigate('RequestDetails', {
-                id: String(request.id),
-              })
-            }
-            style={({ pressed }) => pressed && { opacity: 0.75 }}
-          >
-            <SurfaceCard>
-              <Text style={styles.protocol}>{request.protocol}</Text>
-              <Text style={styles.title}>{request.title}</Text>
-              <Text
-                style={[
-                  styles.status,
-                  request.status === 'CANCELADA' && styles.statusCancelled,
-                ]}
-              >
-                {STATUS_LABELS[request.status]}
-              </Text>
-              <Text style={styles.metadata}>
-                {request.categoryName ??
-                  state.categories.get(request.categoryId) ??
-                  'Categoria não disponível'}
-                {' · '}
-                {formatDate(request.createdAt)}
-              </Text>
-            </SurfaceCard>
-          </Pressable>
-          {isManager &&
-          (request.status === 'RECEBIDA' ||
-            request.status === 'EM_VISTORIA') ? (
-            <ActionButton
-              label={
-                updatingRequestId === request.id
-                  ? 'Atualizando...'
-                  : request.status === 'RECEBIDA'
-                    ? 'Iniciar vistoria'
-                    : 'Marcar como concluída'
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                navigation.navigate('RequestDetails', {
+                  id: String(request.id),
+                })
               }
-              onPress={() => void advanceRequestStatus(request)}
-              disabled={updatingRequestId !== null}
-              variant="secondary"
-            />
-          ) : null}
+              style={({ pressed }) => pressed && { opacity: 0.75 }}
+            >
+              <SurfaceCard>
+                <Text style={styles.protocol}>{request.protocol}</Text>
+                <Text style={styles.title}>{request.title}</Text>
+                <Text
+                  style={[
+                    styles.status,
+                    request.status === 'CANCELADA' && styles.statusCancelled,
+                  ]}
+                >
+                  {STATUS_LABELS[request.status]}
+                </Text>
+                <Text style={styles.metadata}>
+                  {request.categoryName ??
+                    state.categories.get(request.categoryId) ??
+                    'Categoria não disponível'}
+                  {' · '}
+                  {formatDate(request.createdAt)}
+                </Text>
+              </SurfaceCard>
+            </Pressable>
+            {isManager &&
+            (request.status === 'RECEBIDA' ||
+              request.status === 'EM_VISTORIA') ? (
+              <ActionButton
+                label={
+                  updatingRequestId === request.id
+                    ? 'Atualizando...'
+                    : request.status === 'RECEBIDA'
+                      ? 'Iniciar vistoria'
+                      : 'Marcar como concluída'
+                }
+                onPress={() => void advanceRequestStatus(request)}
+                disabled={updatingRequestId !== null}
+                variant="secondary"
+              />
+            ) : null}
           </View>
         ))}
       {state.status === 'ready' && state.notice ? (

@@ -1,6 +1,5 @@
 import type {
   FloodAlert,
-  GuidanceItem,
   MonitoringPoint,
   RequestCategory,
   ServiceRequest,
@@ -82,36 +81,6 @@ export const DEMO_ALERTS: readonly FloodAlert[] = [
     status: 'ATIVO',
     createdAt: '2026-11-14T14:06:00-03:00',
     endedAt: null,
-  },
-];
-
-export const DEMO_GUIDANCE_ITEMS: readonly GuidanceItem[] = [
-  {
-    id: 'demo-guidance-1',
-    category: 'PREVENCAO',
-    title: 'Acompanhe os canais oficiais',
-    content:
-      'Consulte comunicados da Defesa Civil e da Prefeitura. Este conteúdo é apenas uma demonstração e não considera condições locais em tempo real.',
-    source: 'DEMONSTRACAO',
-    updatedAt: '2026-11-14T09:00:00-03:00',
-  },
-  {
-    id: 'demo-guidance-2',
-    category: 'DURANTE_CHUVA',
-    title: 'Evite atravessar áreas alagadas',
-    content:
-      'Não atravesse trechos alagados a pé ou de veículo. Siga orientações de equipes e autoridades locais.',
-    source: 'DEMONSTRACAO',
-    updatedAt: '2026-11-14T09:00:00-03:00',
-  },
-  {
-    id: 'demo-guidance-3',
-    category: 'POS_CHUVA',
-    title: 'Peça apoio pelos canais adequados',
-    content:
-      'Se identificar um problema de zeladoria, registre uma solicitação quando for seguro fazê-lo. Este exemplo não foi enviado a nenhum serviço público.',
-    source: 'DEMONSTRACAO',
-    updatedAt: '2026-11-14T09:00:00-03:00',
   },
 ];
 

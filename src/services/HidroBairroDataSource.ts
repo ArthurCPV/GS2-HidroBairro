@@ -1,6 +1,5 @@
 import {
   DEMO_ALERTS,
-  DEMO_GUIDANCE_ITEMS,
   DEMO_MONITORING_POINTS,
   DEMO_REQUEST_CATEGORIES,
   DEMO_WATER_LEVEL_READINGS,
@@ -8,7 +7,6 @@ import {
 import type {
   DataCollection,
   FloodAlert,
-  GuidanceItem,
   MonitoringPoint,
   RequestCategory,
   RequestStatus,
@@ -33,7 +31,6 @@ export interface MonitoringDataSource {
 }
 
 export interface GuidanceDataSource {
-  listGuidanceItems(): Promise<DataCollection<readonly GuidanceItem[]>>;
   askGuidance(question: string): Promise<DataCollection<string>>;
 }
 
@@ -41,6 +38,7 @@ export interface ServiceRequestDataSource {
   listRequestCategories(): Promise<DataCollection<readonly RequestCategory[]>>;
   listServiceRequests(
     onlyCurrentUser?: boolean,
+    status?: RequestStatus,
   ): Promise<DataCollection<readonly ServiceRequest[]>>;
   getServiceRequest(requestId: number): Promise<DataCollection<ServiceRequest>>;
   listRequestHistory(
@@ -110,22 +108,12 @@ export const hidroBairroDataSource: HidroBairroDataSource = {
       : collection(DEMO_ALERTS);
   },
 
-  async listGuidanceItems() {
-    const token = await getApiToken();
-    if (token) {
-      return javaApiDataSource.listGuidanceItems();
-    }
-    return collection(DEMO_GUIDANCE_ITEMS);
-  },
-
   async askGuidance(question) {
     const token = await getApiToken();
-    if (token) {
-      return javaApiDataSource.askGuidance(token, question);
+    if (!token) {
+      throw new Error('Entre na sua conta para consultar a IA.');
     }
-    return itemCollection(
-      'O chat com a IA fica disponível quando a API Java estiver conectada. Enquanto isso, consulte as orientações educativas demonstrativas acima.',
-    );
+    return javaApiDataSource.askGuidance(token, question);
   },
 
   async listRequestCategories() {
@@ -135,12 +123,21 @@ export const hidroBairroDataSource: HidroBairroDataSource = {
       : collection(DEMO_REQUEST_CATEGORIES);
   },
 
-  async listServiceRequests(onlyCurrentUser = true) {
+  async listServiceRequests(onlyCurrentUser = true, status) {
     const token = await getApiToken();
     if (token) {
-      return dotNetApiDataSource.listServiceRequests(token, onlyCurrentUser);
+      return dotNetApiDataSource.listServiceRequests(
+        token,
+        onlyCurrentUser,
+        status,
+      );
     }
-    return collection(await serviceRequestRepository.list());
+    const requests = await serviceRequestRepository.list();
+    return collection(
+      status
+        ? requests.filter((request) => request.status === status)
+        : requests,
+    );
   },
 
   async getServiceRequest(requestId) {

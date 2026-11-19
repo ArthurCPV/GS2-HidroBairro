@@ -11,8 +11,6 @@ export type RequestStatus =
   | 'CONCLUIDA'
   | 'CANCELADA';
 
-export type GuidanceCategory = 'PREVENCAO' | 'DURANTE_CHUVA' | 'POS_CHUVA';
-export type GuidanceSource = 'DEMONSTRACAO' | 'DOCUMENTACAO' | 'IA';
 export type DataProvider = 'DEMONSTRACAO' | 'API';
 
 export interface Coordinates {
@@ -49,15 +47,6 @@ export interface FloodAlert {
   status: AlertStatus;
   createdAt: string;
   endedAt: string | null;
-}
-
-export interface GuidanceItem {
-  id: string;
-  category: GuidanceCategory;
-  title: string;
-  content: string;
-  source: GuidanceSource;
-  updatedAt: string;
 }
 
 export interface RequestCategory {

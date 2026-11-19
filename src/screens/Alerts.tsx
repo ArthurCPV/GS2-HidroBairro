@@ -68,9 +68,6 @@ export default function AlertsScreen() {
         filterTextSelected: {
           color: theme.colors.action,
         },
-        cardPressable: {
-          gap: theme.spacing.compact,
-        },
         cardHeader: {
           flexDirection: 'row',
           alignItems: 'center',
@@ -129,11 +126,6 @@ export default function AlertsScreen() {
           color: theme.colors.error,
           fontSize: 14,
           lineHeight: 20,
-        },
-        buttonText: {
-          color: theme.colors.action,
-          fontSize: 14,
-          fontWeight: '700',
         },
       }),
     [theme],

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ActivityIndicator,
   Platform,
@@ -41,7 +42,45 @@ type LocationState =
   | 'permissionDenied'
   | 'permissionBlocked'
   | 'servicesDisabled'
+  | 'preferenceError'
   | 'error';
+
+type LocationResult =
+  | { status: 'located'; coordinates: Coordinates }
+  | {
+      status: 'permissionDenied' | 'permissionBlocked' | 'servicesDisabled';
+    };
+
+const LOCATION_PREFERENCE_KEY = '@hidrobairro/location-opt-in/v1';
+
+async function getDeviceLocation(
+  requestPermission: boolean,
+): Promise<LocationResult> {
+  if (!(await Location.hasServicesEnabledAsync())) {
+    return { status: 'servicesDisabled' };
+  }
+
+  let permission = await Location.getForegroundPermissionsAsync();
+  if (!permission.granted && requestPermission) {
+    permission = await Location.requestForegroundPermissionsAsync();
+  }
+  if (!permission.granted) {
+    return {
+      status: permission.canAskAgain ? 'permissionDenied' : 'permissionBlocked',
+    };
+  }
+
+  const position = await Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.Balanced,
+  });
+  return {
+    status: 'located',
+    coordinates: {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+    },
+  };
+}
 
 const EMPTY_POINTS: DataCollection<readonly MonitoringPoint[]> = {
   data: [],
@@ -63,6 +102,8 @@ const LOCATION_MESSAGES: Record<LocationState, string> = {
     'Permissão bloqueada. Ajuste o acesso à localização nas configurações do aparelho.',
   servicesDisabled:
     'Serviços de localização desativados. O mapa continua na área demonstrativa da Zona Sul.',
+  preferenceError:
+    'Não foi possível salvar ou restaurar a preferência. Você pode continuar usando o mapa; talvez precise tocar no botão na próxima abertura.',
   error:
     'Não foi possível obter sua localização. O mapa continua na área demonstrativa da Zona Sul.',
 };
@@ -125,9 +166,20 @@ export default function MapScreen() {
           fontSize: 15,
           fontWeight: '700',
         },
+        stopLocationButton: {
+          alignSelf: 'flex-start',
+          minHeight: 40,
+          justifyContent: 'center',
+          paddingHorizontal: 8,
+        },
+        stopLocationButtonText: {
+          color: theme.colors.muted,
+          fontSize: 13,
+          fontWeight: '600',
+        },
         locationStatus: {
           color:
-            locationState === 'error'
+            locationState === 'error' || locationState === 'preferenceError'
               ? theme.colors.error
               : theme.colors.body,
           fontSize: 13,
@@ -197,48 +249,102 @@ export default function MapScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function restoreLocationPreference() {
+      try {
+        const preference = await AsyncStorage.getItem(
+          LOCATION_PREFERENCE_KEY,
+        );
+        if (!isMounted || preference !== 'enabled') {
+          return;
+        }
+
+        setLocationState('loading');
+        const result = await getDeviceLocation(false);
+        if (!isMounted) {
+          return;
+        }
+        if (result.status !== 'located') {
+          setUserLocation(null);
+          setRegion(ZONE_SOUTH_REGION);
+          setLocationState(result.status);
+          return;
+        }
+
+        setUserLocation(result.coordinates);
+        setRegion({
+          ...result.coordinates,
+          latitudeDelta: USER_LOCATION_REGION_DELTA,
+          longitudeDelta: USER_LOCATION_REGION_DELTA,
+        });
+        setLocationState('located');
+      } catch (error) {
+        console.error(
+          'Não foi possível restaurar a preferência de localização.',
+          error,
+        );
+        if (isMounted) {
+          setLocationState('error');
+        }
+      }
+    }
+
+    void restoreLocationPreference();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   async function centerOnUserLocation() {
     setLocationState('loading');
 
     try {
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
-      if (!servicesEnabled) {
+      const result = await getDeviceLocation(true);
+      if (result.status !== 'located') {
         setUserLocation(null);
         setRegion(ZONE_SOUTH_REGION);
-        setLocationState('servicesDisabled');
+        setLocationState(result.status);
         return;
       }
 
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted) {
-        setUserLocation(null);
-        setRegion(ZONE_SOUTH_REGION);
-        setLocationState(
-          permission.canAskAgain ? 'permissionDenied' : 'permissionBlocked',
-        );
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const coordinates = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
-
-      setUserLocation(coordinates);
+      setUserLocation(result.coordinates);
       setRegion({
-        ...coordinates,
+        ...result.coordinates,
         latitudeDelta: USER_LOCATION_REGION_DELTA,
         longitudeDelta: USER_LOCATION_REGION_DELTA,
       });
-      setLocationState('located');
+      try {
+        await AsyncStorage.setItem(LOCATION_PREFERENCE_KEY, 'enabled');
+        setLocationState('located');
+      } catch (error) {
+        console.error(
+          'Não foi possível salvar a preferência de localização.',
+          error,
+        );
+        setLocationState('preferenceError');
+      }
     } catch (error) {
       console.error('Não foi possível obter a localização do dispositivo.', error);
       setUserLocation(null);
       setRegion(ZONE_SOUTH_REGION);
       setLocationState('error');
+    }
+  }
+
+  async function stopUsingUserLocation() {
+    try {
+      await AsyncStorage.removeItem(LOCATION_PREFERENCE_KEY);
+      setUserLocation(null);
+      setRegion(ZONE_SOUTH_REGION);
+      setLocationState('idle');
+    } catch (error) {
+      console.error(
+        'Não foi possível remover a preferência de localização.',
+        error,
+      );
+      setLocationState('preferenceError');
     }
   }
 
@@ -255,7 +361,9 @@ export default function MapScreen() {
             Mapa e localização
           </Text>
           <Text style={styles.description}>
-            Pontos de monitoramento do piloto na Zona Sul de São Paulo.
+            Ao autorizar a localização, o app lembrará sua escolha neste
+            aparelho e centralizará o mapa nas próximas aberturas. Você pode
+            parar de usar a localização a qualquer momento.
           </Text>
         </View>
 
@@ -292,6 +400,17 @@ export default function MapScreen() {
         <Text accessibilityLiveRegion="polite" style={styles.locationStatus}>
           {LOCATION_MESSAGES[locationState]}
         </Text>
+        {userLocation !== null && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void stopUsingUserLocation()}
+            style={styles.stopLocationButton}
+          >
+            <Text style={styles.stopLocationButtonText}>
+              Parar de usar minha localização
+            </Text>
+          </Pressable>
+        )}
 
         {mapData.status === 'loading' && (
           <Text style={styles.mapStatus}>

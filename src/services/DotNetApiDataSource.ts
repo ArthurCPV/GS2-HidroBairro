@@ -115,12 +115,19 @@ export const dotNetApiDataSource = {
     );
   },
 
-  listServiceRequests(token: string, onlyCurrentUser: boolean) {
+  listServiceRequests(
+    token: string,
+    onlyCurrentUser: boolean,
+    status?: RequestStatus,
+  ) {
     const query = new URLSearchParams({
       page: '1',
       pageSize: '100',
       somenteDoUsuario: String(onlyCurrentUser),
     });
+    if (status) {
+      query.set('status', status);
+    }
     return getList(
       `/api/solicitacoes?${query.toString()}`,
       token,
