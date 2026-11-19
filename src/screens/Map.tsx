@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,7 +27,7 @@ import type { MapViewport } from '@/types/map';
 
 type MapDataState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | {
       status: 'ready';
       points: DataCollection<readonly MonitoringPoint[]>;
@@ -67,6 +69,7 @@ const LOCATION_MESSAGES: Record<LocationState, string> = {
 
 export default function MapScreen() {
   const { theme } = useTheme();
+  const { width } = useWindowDimensions();
   const [region, setRegion] = useState<MapViewport>(ZONE_SOUTH_REGION);
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locationState, setLocationState] = useState<LocationState>('idle');
@@ -82,7 +85,7 @@ export default function MapScreen() {
         screen: {
           flex: 1,
           gap: theme.spacing.compact,
-          paddingHorizontal: theme.spacing.page,
+          paddingHorizontal: width < 520 ? 16 : theme.spacing.page,
           paddingTop: theme.spacing.compact,
           paddingBottom: theme.spacing.compact,
         },
@@ -106,8 +109,10 @@ export default function MapScreen() {
           justifyContent: 'center',
           gap: 8,
           paddingHorizontal: theme.spacing.element,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
           borderRadius: theme.radius.control,
-          backgroundColor: theme.colors.action,
+          backgroundColor: theme.colors.actionSurface,
         },
         locationButtonPressed: {
           opacity: 0.78,
@@ -116,7 +121,7 @@ export default function MapScreen() {
           opacity: 0.65,
         },
         locationButtonText: {
-          color: theme.colors.background,
+          color: theme.colors.action,
           fontSize: 15,
           fontWeight: '700',
         },
@@ -156,7 +161,7 @@ export default function MapScreen() {
           lineHeight: 17,
         },
       }),
-    [locationState, theme],
+    [locationState, theme, width],
   );
 
   useEffect(() => {
@@ -175,7 +180,13 @@ export default function MapScreen() {
       } catch (error) {
         console.error('Não foi possível carregar os dados do mapa.', error);
         if (isMounted) {
-          setMapData({ status: 'error' });
+          setMapData({
+            status: 'error',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Não foi possível carregar os pontos de monitoramento.',
+          });
         }
       }
     }
@@ -248,26 +259,35 @@ export default function MapScreen() {
           </Text>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: locationState === 'loading' }}
-          disabled={locationState === 'loading'}
-          onPress={() => void centerOnUserLocation()}
-          style={({ pressed }) => [
-            styles.locationButton,
-            pressed && styles.locationButtonPressed,
-            locationState === 'loading' && styles.locationButtonDisabled,
-          ]}
-        >
-          {locationState === 'loading' && (
-            <ActivityIndicator color={theme.colors.background} size="small" />
-          )}
-          <Text style={styles.locationButtonText}>
-            {locationState === 'loading'
-              ? 'Obtendo localização…'
-              : 'Usar minha localização'}
+        {Platform.OS === 'web' && (
+          <Text style={styles.mapStatus}>
+            No navegador, o mapa usa OpenStreetMap. Ao autorizar a localização,
+            sua coordenada será enviada ao provedor para centralizar o mapa.
           </Text>
-        </Pressable>
+        )}
+
+        {locationState !== 'located' && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: locationState === 'loading' }}
+            disabled={locationState === 'loading'}
+            onPress={() => void centerOnUserLocation()}
+            style={({ pressed }) => [
+              styles.locationButton,
+              pressed && styles.locationButtonPressed,
+              locationState === 'loading' && styles.locationButtonDisabled,
+            ]}
+          >
+            {locationState === 'loading' && (
+              <ActivityIndicator color={theme.colors.action} size="small" />
+            )}
+            <Text style={styles.locationButtonText}>
+              {locationState === 'loading'
+                ? 'Obtendo localização…'
+                : 'Usar minha localização'}
+            </Text>
+          </Pressable>
+        )}
 
         <Text accessibilityLiveRegion="polite" style={styles.locationStatus}>
           {LOCATION_MESSAGES[locationState]}
@@ -280,7 +300,7 @@ export default function MapScreen() {
         )}
         {mapData.status === 'error' && (
           <Text accessibilityRole="alert" style={styles.mapError}>
-            Não foi possível carregar os pontos de monitoramento.
+            {mapData.message}
           </Text>
         )}
 
@@ -296,7 +316,7 @@ export default function MapScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Os marcadores indicam pontos, não áreas de risco.
+            Os pontos exibidos não representam áreas de risco.
           </Text>
           {mapData.status === 'ready' &&
             (mapData.points.provider === 'DEMONSTRACAO' ||

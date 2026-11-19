@@ -10,6 +10,7 @@ import { ActionButton } from '@/components/ActionButton';
 import { ScreenFrame } from '@/components/ScreenFrame';
 import { SurfaceCard } from '@/components/SurfaceCard';
 import { hidroBairroDataSource } from '@/services/HidroBairroDataSource';
+import { useAuth } from '@/store/AuthProvider';
 import { useTheme } from '@/store/useTheme';
 import type {
   RequestStatusHistory,
@@ -22,13 +23,15 @@ import type {
 
 type DetailState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | {
       status: 'ready';
       request: ServiceRequest | null;
       categoryName: string | null;
       pointName: string | null;
       history: readonly RequestStatusHistory[];
+      isApiBacked: boolean;
+      historyError: string | null;
     };
 
 const STATUS_LABELS: Record<ServiceRequest['status'], string> = {
@@ -48,7 +51,10 @@ function formatDate(value: string) {
 export default function RequestDetailsScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
   const route = useRoute<RouteProp<RootStackParamList, 'RequestDetails'>>();
+  const { session } = useAuth();
   const { theme } = useTheme();
+  const isManager =
+    session.status === 'authenticated' && session.user.role === 'GESTOR';
   const [state, setState] = useState<DetailState>({ status: 'loading' });
   const [isConfirmingCancellation, setIsConfirmingCancellation] =
     useState(false);
@@ -141,37 +147,70 @@ export default function RequestDetailsScreen() {
         categoryName: null,
         pointName: null,
         history: [],
+        isApiBacked: false,
+        historyError: null,
       });
       return;
     }
 
     try {
-      const [requests, categories, points] = await Promise.all([
-        hidroBairroDataSource.listServiceRequests(),
-        hidroBairroDataSource.listRequestCategories(),
-        hidroBairroDataSource.listMonitoringPoints(),
-      ]);
-      const request =
-        requests.data.find((item) => item.id === requestId) ?? null;
-      const history = request
-        ? await hidroBairroDataSource.listRequestHistory(requestId)
-        : { data: [] };
+      const requestResult =
+        await hidroBairroDataSource.getServiceRequest(requestId);
+      const request = requestResult.data;
+      let categoryName = request.categoryName ?? null;
+      let pointName =
+        request.pointId !== null
+          ? `Ponto monitorado #${request.pointId}`
+          : null;
+      if (request.location) {
+        pointName = `${request.location.latitude.toFixed(5)}, ${request.location.longitude.toFixed(5)}`;
+      }
+
+      if (requestResult.provider === 'DEMONSTRACAO') {
+        const [categories, points] = await Promise.all([
+          hidroBairroDataSource.listRequestCategories(),
+          hidroBairroDataSource.listMonitoringPoints(),
+        ]);
+        categoryName =
+          categories.data.find((item) => item.id === request.categoryId)
+            ?.name ?? null;
+        pointName =
+          points.data.find((item) => item.id === request.pointId)
+            ?.neighborhood ?? pointName;
+      }
+
+      let history: readonly RequestStatusHistory[] = [];
+      let historyError: string | null = null;
+      try {
+        history = (
+          await hidroBairroDataSource.listRequestHistory(requestId)
+        ).data;
+      } catch (error) {
+        console.error('Não foi possível carregar o histórico da solicitação.', error);
+        historyError =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar o histórico.';
+      }
+
       setState({
         status: 'ready',
         request,
-        categoryName: request
-          ? categories.data.find((item) => item.id === request.categoryId)
-              ?.name ?? null
-          : null,
-        pointName: request
-          ? points.data.find((item) => item.id === request.pointId)
-              ?.neighborhood ?? null
-          : null,
-        history: history.data,
+        categoryName,
+        pointName,
+        history,
+        isApiBacked: requestResult.provider === 'API',
+        historyError,
       });
     } catch (error) {
       console.error('Não foi possível carregar o detalhe da solicitação.', error);
-      setState({ status: 'error' });
+      setState({
+        status: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar esta solicitação.',
+      });
     }
   }, [route.params.id]);
 
@@ -193,7 +232,11 @@ export default function RequestDetailsScreen() {
       await loadDetails();
     } catch (error) {
       console.error('Não foi possível cancelar a solicitação.', error);
-      setActionError('O cancelamento não foi concluído. Tente novamente.');
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'O cancelamento não foi concluído. Tente novamente.',
+      );
     } finally {
       setIsCancelling(false);
     }
@@ -202,7 +245,11 @@ export default function RequestDetailsScreen() {
   return (
     <ScreenFrame
       title="Detalhe da solicitação"
-      description="Registro local de demonstração; nada foi enviado a um serviço público."
+      description={
+        state.status === 'ready' && state.isApiBacked
+          ? 'Acompanhe o protocolo e o andamento da solicitação.'
+          : 'Registro local de demonstração; nada foi enviado a um serviço público.'
+      }
     >
       {state.status === 'loading' && (
         <Text style={styles.body}>Carregando solicitação...</Text>
@@ -210,7 +257,7 @@ export default function RequestDetailsScreen() {
       {state.status === 'error' && (
         <SurfaceCard>
           <Text accessibilityRole="alert" style={styles.error}>
-            Não foi possível carregar esta solicitação.
+            {state.message}
           </Text>
           <ActionButton
             label="Tentar novamente"
@@ -230,7 +277,9 @@ export default function RequestDetailsScreen() {
       {state.status === 'ready' && state.request ? (
         <>
           <SurfaceCard>
-            <Text style={styles.label}>Protocolo demonstrativo</Text>
+            <Text style={styles.label}>
+              {state.isApiBacked ? 'Protocolo' : 'Protocolo demonstrativo'}
+            </Text>
             <Text style={styles.value}>{state.request.protocol}</Text>
             <Text
               style={[
@@ -250,7 +299,10 @@ export default function RequestDetailsScreen() {
             </Text>
             <Text style={styles.label}>Local do piloto</Text>
             <Text style={styles.value}>
-              {state.pointName ?? 'Ponto não disponível'}
+              {state.pointName ??
+                (state.request.location
+                  ? `${state.request.location.latitude.toFixed(5)}, ${state.request.location.longitude.toFixed(5)}`
+                  : 'Ponto não disponível')}
             </Text>
             <Text style={styles.body}>
               Criada em {formatDate(state.request.createdAt)}
@@ -262,6 +314,11 @@ export default function RequestDetailsScreen() {
 
           <SurfaceCard>
             <Text style={styles.label}>Histórico de status</Text>
+            {state.historyError ? (
+              <Text accessibilityRole="alert" style={styles.error}>
+                {state.historyError}
+              </Text>
+            ) : null}
             {state.history.length > 0 ? (
               <View style={styles.timeline}>
                 {state.history.map((entry) => (
@@ -281,8 +338,9 @@ export default function RequestDetailsScreen() {
               </View>
             ) : (
               <Text style={styles.body}>
-                O histórico demonstrativo começa a ser registrado quando o
-                status é alterado neste aplicativo.
+                {state.isApiBacked
+                  ? 'Ainda não há alterações de status registradas.'
+                  : 'O histórico demonstrativo começa a ser registrado quando o status é alterado neste aplicativo.'}
               </Text>
             )}
           </SurfaceCard>
@@ -298,7 +356,8 @@ export default function RequestDetailsScreen() {
               variant="secondary"
             />
           ) : null}
-          {state.request.status === 'RECEBIDA' &&
+          {(state.request.status === 'RECEBIDA' ||
+            (isManager && state.request.status === 'EM_VISTORIA')) &&
           !isConfirmingCancellation ? (
             <ActionButton
               label="Cancelar solicitação"
@@ -309,7 +368,9 @@ export default function RequestDetailsScreen() {
           {isConfirmingCancellation ? (
             <View style={styles.confirmation}>
               <Text style={styles.confirmationText}>
-                Deseja cancelar este registro demonstrativo?
+                {state.isApiBacked
+                  ? 'Confirma o cancelamento desta solicitação?'
+                  : 'Deseja cancelar este registro demonstrativo?'}
               </Text>
               <View style={styles.confirmationActions}>
                 <ActionButton
@@ -333,8 +394,9 @@ export default function RequestDetailsScreen() {
             </Text>
           ) : null}
           <Text style={styles.notice}>
-            A edição e o cancelamento alteram somente os dados locais deste
-            protótipo. Não inclua informações pessoais ou sensíveis.
+            {state.isApiBacked
+              ? 'Esta solicitação foi enviada à API de zeladoria. As alterações de status são registradas no histórico.'
+              : 'A edição e o cancelamento alteram somente os dados locais deste protótipo. Não inclua informações pessoais ou sensíveis.'}
           </Text>
         </>
       ) : null}

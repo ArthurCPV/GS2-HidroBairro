@@ -1,7 +1,10 @@
 import { StyleSheet } from 'react-native';
 import type { AppTheme } from '@/styles/theme';
 
-export function createGlobalStyles(theme: AppTheme) {
+export function createGlobalStyles(
+  theme: AppTheme,
+  horizontalPadding = theme.spacing.page,
+) {
   return StyleSheet.create({
     safeArea: {
       flex: 1,
@@ -10,7 +13,8 @@ export function createGlobalStyles(theme: AppTheme) {
     screenContent: {
       flexGrow: 1,
       justifyContent: 'center',
-      padding: theme.spacing.page,
+      paddingHorizontal: horizontalPadding,
+      paddingVertical: theme.spacing.page,
       gap: theme.spacing.element,
     },
     screenTitle: {

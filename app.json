@@ -30,7 +30,8 @@
         {
           "locationWhenInUsePermission": "Sua localização será usada somente para centralizar o mapa enquanto você usa o HidroBairro."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

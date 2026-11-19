@@ -23,7 +23,7 @@ import type {
 
 type DetailState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | {
       status: 'ready';
       alert: FloodAlert | null;
@@ -124,7 +124,13 @@ export default function AlertDetailsScreen() {
       });
     } catch (error) {
       console.error('Não foi possível carregar o detalhe do alerta.', error);
-      setState({ status: 'error' });
+      setState({
+        status: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar este alerta.',
+      });
     }
   }, [route.params.id]);
 
@@ -145,7 +151,7 @@ export default function AlertDetailsScreen() {
       {state.status === 'error' && (
         <SurfaceCard>
           <Text accessibilityRole="alert" style={styles.error}>
-            Não foi possível carregar este alerta.
+            {state.message}
           </Text>
           <ActionButton
             label="Tentar novamente"

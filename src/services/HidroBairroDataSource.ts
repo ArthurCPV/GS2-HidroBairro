@@ -11,11 +11,16 @@ import type {
   GuidanceItem,
   MonitoringPoint,
   RequestCategory,
+  RequestStatus,
   RequestStatusHistory,
   ServiceRequest,
   ServiceRequestDraft,
+  ServiceRequestUpdateDraft,
   WaterLevelReading,
 } from '@/types/domain';
+import { authStorage } from '@/services/authStorage';
+import { dotNetApiDataSource } from '@/services/DotNetApiDataSource';
+import { javaApiDataSource } from '@/services/JavaApiDataSource';
 import { serviceRequestRepository } from '@/services/ServiceRequestRepository';
 
 const DEMO_NOTICE =
@@ -29,23 +34,33 @@ export interface MonitoringDataSource {
 
 export interface GuidanceDataSource {
   listGuidanceItems(): Promise<DataCollection<readonly GuidanceItem[]>>;
+  askGuidance(question: string): Promise<DataCollection<string>>;
 }
 
 export interface ServiceRequestDataSource {
   listRequestCategories(): Promise<DataCollection<readonly RequestCategory[]>>;
-  listServiceRequests(): Promise<DataCollection<readonly ServiceRequest[]>>;
+  listServiceRequests(
+    onlyCurrentUser?: boolean,
+  ): Promise<DataCollection<readonly ServiceRequest[]>>;
+  getServiceRequest(requestId: number): Promise<DataCollection<ServiceRequest>>;
   listRequestHistory(
     requestId: number,
   ): Promise<DataCollection<readonly RequestStatusHistory[]>>;
   createServiceRequest(
     draft: ServiceRequestDraft,
+    idempotencyKey: string,
   ): Promise<DataCollection<ServiceRequest>>;
   updateServiceRequest(
     requestId: number,
-    draft: ServiceRequestDraft,
+    draft: ServiceRequestDraft | ServiceRequestUpdateDraft,
   ): Promise<DataCollection<ServiceRequest>>;
   cancelServiceRequest(
     requestId: number,
+  ): Promise<DataCollection<ServiceRequest>>;
+  changeServiceRequestStatus(
+    requestId: number,
+    status: RequestStatus,
+    observation: string,
   ): Promise<DataCollection<ServiceRequest>>;
 }
 
@@ -69,39 +84,141 @@ function itemCollection<T>(data: T): DataCollection<T> {
   };
 }
 
-const demoDataSource: HidroBairroDataSource = {
+async function getApiToken() {
+  return authStorage.getToken();
+}
+
+export const hidroBairroDataSource: HidroBairroDataSource = {
   async listMonitoringPoints() {
-    return collection(DEMO_MONITORING_POINTS);
+    const token = await getApiToken();
+    return token
+      ? javaApiDataSource.listMonitoringPoints(token)
+      : collection(DEMO_MONITORING_POINTS);
   },
+
   async listWaterLevelReadings() {
-    return collection(DEMO_WATER_LEVEL_READINGS);
+    const token = await getApiToken();
+    return token
+      ? javaApiDataSource.listWaterLevelReadings(token)
+      : collection(DEMO_WATER_LEVEL_READINGS);
   },
+
   async listAlerts() {
-    return collection(DEMO_ALERTS);
+    const token = await getApiToken();
+    return token
+      ? javaApiDataSource.listAlerts(token)
+      : collection(DEMO_ALERTS);
   },
+
   async listGuidanceItems() {
+    const token = await getApiToken();
+    if (token) {
+      return javaApiDataSource.listGuidanceItems();
+    }
     return collection(DEMO_GUIDANCE_ITEMS);
   },
-  async listRequestCategories() {
-    return collection(DEMO_REQUEST_CATEGORIES);
+
+  async askGuidance(question) {
+    const token = await getApiToken();
+    if (token) {
+      return javaApiDataSource.askGuidance(token, question);
+    }
+    return itemCollection(
+      'O chat com a IA fica disponível quando a API Java estiver conectada. Enquanto isso, consulte as orientações educativas demonstrativas acima.',
+    );
   },
-  async listServiceRequests() {
+
+  async listRequestCategories() {
+    const token = await getApiToken();
+    return token
+      ? dotNetApiDataSource.listRequestCategories(token)
+      : collection(DEMO_REQUEST_CATEGORIES);
+  },
+
+  async listServiceRequests(onlyCurrentUser = true) {
+    const token = await getApiToken();
+    if (token) {
+      return dotNetApiDataSource.listServiceRequests(token, onlyCurrentUser);
+    }
     return collection(await serviceRequestRepository.list());
   },
+
+  async getServiceRequest(requestId) {
+    const token = await getApiToken();
+    if (token) {
+      return dotNetApiDataSource.getServiceRequest(token, requestId);
+    }
+    const request = (await serviceRequestRepository.list()).find(
+      (item) => item.id === requestId,
+    );
+    if (!request) {
+      throw new Error('A solicitação não foi encontrada.');
+    }
+    return itemCollection(request);
+  },
+
   async listRequestHistory(requestId) {
+    const token = await getApiToken();
+    if (token) {
+      return dotNetApiDataSource.listRequestHistory(token, requestId);
+    }
     return collection(await serviceRequestRepository.listHistory(requestId));
   },
-  async createServiceRequest(draft) {
+
+  async createServiceRequest(draft, idempotencyKey) {
+    const token = await getApiToken();
+    if (token) {
+      return dotNetApiDataSource.createServiceRequest(
+        token,
+        draft,
+        idempotencyKey,
+      );
+    }
     return itemCollection(await serviceRequestRepository.create(draft));
   },
+
   async updateServiceRequest(requestId, draft) {
+    const token = await getApiToken();
+    if (token) {
+      return dotNetApiDataSource.updateServiceRequest(
+        token,
+        requestId,
+        {
+          title: draft.title,
+          description: draft.description,
+        },
+      );
+    }
+    if (!('categoryId' in draft)) {
+      throw new Error(
+        'A edição demonstrativa exige categoria e local para manter o registro.',
+      );
+    }
     return itemCollection(
       await serviceRequestRepository.update(requestId, draft),
     );
   },
+
   async cancelServiceRequest(requestId) {
+    const token = await getApiToken();
+    if (token) {
+      return dotNetApiDataSource.cancelServiceRequest(token, requestId);
+    }
     return itemCollection(await serviceRequestRepository.cancel(requestId));
   },
-};
 
-export const hidroBairroDataSource: HidroBairroDataSource = demoDataSource;
+  async changeServiceRequestStatus(requestId, status, observation) {
+    const token = await getApiToken();
+    if (!token) {
+      throw new Error(
+        'A atualização de status pelo gestor exige uma sessão autenticada.',
+      );
+    }
+    return dotNetApiDataSource.changeServiceRequestStatus(
+      token,
+      requestId,
+      status,
+      observation,
+    );
+  },
+};

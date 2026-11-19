@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/store/useTheme';
 
@@ -16,6 +22,8 @@ export function ScreenFrame({
   children,
 }: ScreenFrameProps) {
   const { theme } = useTheme();
+  const { width } = useWindowDimensions();
+  const horizontalPadding = width < 520 ? 16 : theme.spacing.page;
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -26,7 +34,8 @@ export function ScreenFrame({
         content: {
           flexGrow: 1,
           gap: theme.spacing.element,
-          padding: theme.spacing.page,
+          paddingHorizontal: horizontalPadding,
+          paddingTop: theme.spacing.page,
           paddingBottom: theme.spacing.page * 1.5,
         },
         header: {
@@ -43,7 +52,7 @@ export function ScreenFrame({
           lineHeight: theme.typography.bodyLine,
         },
       }),
-    [theme],
+    [horizontalPadding, theme],
   );
 
   return (

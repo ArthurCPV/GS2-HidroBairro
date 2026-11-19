@@ -16,7 +16,7 @@ import type { HomeTabNavigationProp } from '@/types/navigation';
 
 type AlertState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | {
       status: 'ready';
       alerts: readonly FloodAlert[];
@@ -159,7 +159,13 @@ export default function AlertsScreen() {
       });
     } catch (error) {
       console.error('Não foi possível carregar a lista de alertas.', error);
-      setState({ status: 'error' });
+      setState({
+        status: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar os alertas.',
+      });
     }
   }, []);
 
@@ -211,7 +217,7 @@ export default function AlertsScreen() {
       {state.status === 'error' && (
         <SurfaceCard>
           <Text accessibilityRole="alert" style={styles.error}>
-            Não foi possível carregar os alertas. Tente novamente.
+            {state.message}
           </Text>
           <ActionButton label="Tentar novamente" onPress={() => void loadAlerts()} variant="secondary" />
         </SurfaceCard>

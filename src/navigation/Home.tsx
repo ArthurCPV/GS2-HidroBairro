@@ -1,4 +1,8 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useState } from 'react';
+import { useWindowDimensions } from 'react-native';
+import { SidebarTabBar } from '@/components/SidebarTabBar';
+import { useAuth } from '@/store/AuthProvider';
 import { useTheme } from '@/store/useTheme';
 import type { HomeTabParamList } from '@/types/navigation';
 import AIScreen from '@/screens/AI';
@@ -11,21 +15,35 @@ const Tab = createBottomTabNavigator<HomeTabParamList>();
 
 export default function HomeNavigation() {
   const { theme } = useTheme();
+  const { session } = useAuth();
+  const { width } = useWindowDimensions();
+  const isManager =
+    session.status === 'authenticated' && session.user.role === 'GESTOR';
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
 
   return (
     <Tab.Navigator
+      tabBar={(props) => (
+        <SidebarTabBar
+          {...props}
+          expanded={isSidebarExpanded}
+          onSelectTab={() => {
+            if (width < 720) {
+              setIsSidebarExpanded(false);
+            }
+          }}
+          onToggleExpanded={() =>
+            setIsSidebarExpanded((isExpanded) => !isExpanded)
+          }
+        />
+      )}
       screenOptions={{
         headerShown: false,
-        tabBarIcon: () => null,
-        tabBarShowLabel: true,
-        tabBarActiveTintColor: theme.colors.action,
-        tabBarInactiveTintColor: theme.colors.muted,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-          paddingTop: 6,
+          borderRightColor: theme.colors.border,
         },
-        tabBarLabelStyle: { fontWeight: '600' },
+        tabBarPosition: 'left',
       }}
     >
       <Tab.Screen
@@ -47,7 +65,7 @@ export default function HomeNavigation() {
       <Tab.Screen
         name="Requests"
         component={RequestsScreen}
-        options={{ title: 'Solicitações' }}
+        options={{ title: isManager ? 'Painel' : 'Solicitações' }}
       />
     </Tab.Navigator>
   );

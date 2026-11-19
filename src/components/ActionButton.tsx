@@ -28,7 +28,9 @@ export function ActionButton({
           borderRadius: theme.radius.control,
         },
         primary: {
-          backgroundColor: theme.colors.action,
+          backgroundColor: theme.colors.actionSurface,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
         },
         secondary: {
           backgroundColor: theme.colors.actionSurface,
@@ -47,7 +49,7 @@ export function ActionButton({
           opacity: 0.55,
         },
         primaryText: {
-          color: theme.colors.background,
+          color: theme.colors.action,
         },
         secondaryText: {
           color: theme.colors.action,

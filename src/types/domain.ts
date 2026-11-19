@@ -72,6 +72,7 @@ export interface ServiceRequest {
   protocol: string;
   userId: number;
   categoryId: number;
+  categoryName?: string | null;
   pointId: number | null;
   title: string;
   description: string;
@@ -97,6 +98,11 @@ export interface ServiceRequestDraft {
   title: string;
   description: string;
   location: Coordinates;
+}
+
+export interface ServiceRequestUpdateDraft {
+  title: string;
+  description: string;
 }
 
 export interface DataCollection<T> {

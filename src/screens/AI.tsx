@@ -1,6 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { ActionButton } from '@/components/ActionButton';
 import { ScreenFrame } from '@/components/ScreenFrame';
 import { SurfaceCard } from '@/components/SurfaceCard';
@@ -10,7 +16,7 @@ import type { GuidanceCategory, GuidanceItem } from '@/types/domain';
 
 type GuidanceState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | {
       status: 'ready';
       items: readonly GuidanceItem[];
@@ -30,6 +36,10 @@ export default function AIScreen() {
   const { theme } = useTheme();
   const [category, setCategory] = useState<GuidanceCategory>('PREVENCAO');
   const [state, setState] = useState<GuidanceState>({ status: 'loading' });
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [isAsking, setIsAsking] = useState(false);
+  const [questionError, setQuestionError] = useState<string | null>(null);
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -101,6 +111,18 @@ export default function AIScreen() {
           fontSize: 14,
           lineHeight: 20,
         },
+        field: {
+          minHeight: 96,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+          borderRadius: theme.radius.control,
+          color: theme.colors.heading,
+          backgroundColor: theme.colors.control,
+          fontSize: 15,
+          textAlignVertical: 'top',
+        },
       }),
     [theme],
   );
@@ -116,7 +138,13 @@ export default function AIScreen() {
       });
     } catch (error) {
       console.error('Não foi possível carregar as orientações.', error);
-      setState({ status: 'error' });
+      setState({
+        status: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar o conteúdo.',
+      });
     }
   }, []);
 
@@ -125,6 +153,31 @@ export default function AIScreen() {
       void loadGuidance();
     }, [loadGuidance]),
   );
+
+  async function submitQuestion() {
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion) {
+      setQuestionError('Digite uma dúvida antes de enviar.');
+      return;
+    }
+
+    setIsAsking(true);
+    setQuestionError(null);
+    setAnswer(null);
+    try {
+      const result = await hidroBairroDataSource.askGuidance(trimmedQuestion);
+      setAnswer(result.data);
+    } catch (error) {
+      console.error('Não foi possível consultar a IA de orientações.', error);
+      setQuestionError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível obter uma orientação.',
+      );
+    } finally {
+      setIsAsking(false);
+    }
+  }
 
   const visibleItems =
     state.status === 'ready'
@@ -137,12 +190,34 @@ export default function AIScreen() {
       description="Recomendações gerais para prevenção e cuidado durante e após chuvas."
     >
       <SurfaceCard>
-        <Text style={styles.title}>Conteúdo informativo</Text>
+        <Text style={styles.title}>Orientações do HidroBairro</Text>
         <Text style={styles.body}>
-          Esta versão apresenta orientações demonstrativas. Não é uma conversa
-          com IA, não consulta sensores em tempo real e não substitui alertas ou
-          instruções das autoridades.
+          Faça uma pergunta sobre prevenção e cuidados com chuva. As respostas
+          da IA são informativas e não substituem alertas ou instruções das
+          autoridades.
         </Text>
+        <TextInput
+          accessibilityLabel="Pergunta para a orientação do HidroBairro"
+          autoCapitalize="sentences"
+          maxLength={1000}
+          multiline
+          onChangeText={setQuestion}
+          placeholder="Ex.: Como me preparar para chuva forte?"
+          placeholderTextColor={theme.colors.muted}
+          style={styles.field}
+          value={question}
+        />
+        <ActionButton
+          label={isAsking ? 'Consultando...' : 'Perguntar'}
+          onPress={() => void submitQuestion()}
+          disabled={isAsking}
+        />
+        {questionError ? (
+          <Text accessibilityRole="alert" style={styles.error}>
+            {questionError}
+          </Text>
+        ) : null}
+        {answer ? <Text style={styles.body}>{answer}</Text> : null}
       </SurfaceCard>
 
       <View style={styles.filters}>
@@ -175,7 +250,7 @@ export default function AIScreen() {
       {state.status === 'error' && (
         <SurfaceCard>
           <Text accessibilityRole="alert" style={styles.error}>
-            Não foi possível carregar o conteúdo.
+            {state.message}
           </Text>
           <ActionButton
             label="Tentar novamente"

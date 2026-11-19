@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { StyleSheet, Text, View } from 'react-native';
 import { hidroBairroDataSource } from '@/services/HidroBairroDataSource';
+import { useAuth } from '@/store/AuthProvider';
 import { useTheme } from '@/store/useTheme';
 import type { DataProvider } from '@/types/domain';
 
@@ -15,7 +16,7 @@ type Summary = {
 
 type SummaryState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | { status: 'ready'; summary: Summary };
 
 function getProviderLabel(providers: DataProvider[]) {
@@ -29,7 +30,10 @@ function getProviderLabel(providers: DataProvider[]) {
 }
 
 export function DataSummary() {
+  const { session } = useAuth();
   const { theme } = useTheme();
+  const isManager =
+    session.status === 'authenticated' && session.user.role === 'GESTOR';
   const [state, setState] = useState<SummaryState>({ status: 'loading' });
   const styles = useMemo(
     () =>
@@ -101,7 +105,7 @@ export function DataSummary() {
           const [points, alerts, requests] = await Promise.all([
             hidroBairroDataSource.listMonitoringPoints(),
             hidroBairroDataSource.listAlerts(),
-            hidroBairroDataSource.listServiceRequests(),
+            hidroBairroDataSource.listServiceRequests(!isManager),
           ]);
 
           if (!isFocused) {
@@ -138,7 +142,13 @@ export function DataSummary() {
         } catch (error) {
           console.error('Não foi possível carregar o resumo do piloto.', error);
           if (isFocused) {
-            setState({ status: 'error' });
+            setState({
+              status: 'error',
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Não foi possível carregar o resumo do piloto.',
+            });
           }
         }
       }
@@ -147,7 +157,7 @@ export function DataSummary() {
       return () => {
         isFocused = false;
       };
-    }, []),
+    }, [isManager]),
   );
 
   return (
@@ -160,7 +170,7 @@ export function DataSummary() {
       )}
       {state.status === 'error' && (
         <Text accessibilityRole="alert" style={styles.error}>
-          Não foi possível carregar o resumo demonstrativo.
+          {state.message}
         </Text>
       )}
       {state.status === 'ready' && (

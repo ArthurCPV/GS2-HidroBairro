@@ -5,6 +5,7 @@ import { ActionButton } from '@/components/ActionButton';
 import { ScreenFrame } from '@/components/ScreenFrame';
 import { SurfaceCard } from '@/components/SurfaceCard';
 import { hidroBairroDataSource } from '@/services/HidroBairroDataSource';
+import { useAuth } from '@/store/AuthProvider';
 import { useTheme } from '@/store/useTheme';
 import type {
   RequestCategory,
@@ -14,11 +15,12 @@ import type { HomeTabNavigationProp } from '@/types/navigation';
 
 type RequestsState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | {
       status: 'ready';
       requests: readonly ServiceRequest[];
       categories: ReadonlyMap<number, string>;
+      notice: string | null;
     };
 
 const STATUS_LABELS: Record<ServiceRequest['status'], string> = {
@@ -34,8 +36,15 @@ function formatDate(value: string) {
 
 export default function RequestsScreen() {
   const navigation = useNavigation<HomeTabNavigationProp<'Requests'>>();
+  const { session } = useAuth();
   const { theme } = useTheme();
+  const isManager =
+    session.status === 'authenticated' && session.user.role === 'GESTOR';
   const [state, setState] = useState<RequestsState>({ status: 'loading' });
+  const [updatingRequestId, setUpdatingRequestId] = useState<number | null>(
+    null,
+  );
+  const [actionError, setActionError] = useState<string | null>(null);
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -110,25 +119,70 @@ export default function RequestsScreen() {
   const loadRequests = useCallback(async () => {
     setState({ status: 'loading' });
     try {
-      const [requests, categories] = await Promise.all([
-        hidroBairroDataSource.listServiceRequests(),
-        hidroBairroDataSource.listRequestCategories(),
-      ]);
+      const requests = await hidroBairroDataSource.listServiceRequests(
+        !isManager,
+      );
+      const categories =
+        requests.provider === 'DEMONSTRACAO'
+          ? await hidroBairroDataSource.listRequestCategories()
+          : null;
       setState({
         status: 'ready',
         requests: requests.data,
         categories: new Map(
-          categories.data.map((category: RequestCategory) => [
+          categories?.data.map((category: RequestCategory) => [
             category.id,
             category.name,
           ]),
         ),
+        notice:
+          requests.provider === 'DEMONSTRACAO'
+            ? requests.notice ?? 'Os registros são demonstrativos.'
+            : null,
       });
     } catch (error) {
       console.error('Não foi possível carregar as solicitações.', error);
-      setState({ status: 'error' });
+      setState({
+        status: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar as solicitações.',
+      });
     }
-  }, []);
+  }, [isManager]);
+
+  async function advanceRequestStatus(request: ServiceRequest) {
+    const nextStatus =
+      request.status === 'RECEBIDA'
+        ? 'EM_VISTORIA'
+        : request.status === 'EM_VISTORIA'
+          ? 'CONCLUIDA'
+          : null;
+    if (!isManager || !nextStatus) {
+      return;
+    }
+
+    setUpdatingRequestId(request.id);
+    setActionError(null);
+    try {
+      await hidroBairroDataSource.changeServiceRequestStatus(
+        request.id,
+        nextStatus,
+        'Atualização realizada pelo painel do gestor.',
+      );
+      await loadRequests();
+    } catch (error) {
+      console.error('Não foi possível atualizar o status da solicitação.', error);
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível atualizar o status.',
+      );
+    } finally {
+      setUpdatingRequestId(null);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -138,20 +192,26 @@ export default function RequestsScreen() {
 
   return (
     <ScreenFrame
-      title="Solicitações"
-      description="Acompanhe seus registros demonstrativos de zeladoria."
+      title={isManager ? 'Painel do gestor' : 'Solicitações'}
+      description={
+        isManager
+          ? 'Acompanhe a fila de zeladoria e avance os chamados em atendimento.'
+          : 'Acompanhe suas solicitações de zeladoria.'
+      }
     >
-      <ActionButton
-        label="Nova solicitação"
-        onPress={() => navigation.navigate('NewRequest')}
-      />
+      {!isManager ? (
+        <ActionButton
+          label="Nova solicitação"
+          onPress={() => navigation.navigate('NewRequest')}
+        />
+      ) : null}
       {state.status === 'loading' && (
         <Text style={styles.emptyBody}>Carregando solicitações...</Text>
       )}
       {state.status === 'error' && (
         <SurfaceCard>
           <Text accessibilityRole="alert" style={styles.error}>
-            Não foi possível carregar as solicitações.
+            {state.message}
           </Text>
           <ActionButton
             label="Tentar novamente"
@@ -160,11 +220,20 @@ export default function RequestsScreen() {
           />
         </SurfaceCard>
       )}
+      {actionError ? (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {actionError}
+        </Text>
+      ) : null}
       {state.status === 'ready' && state.requests.length === 0 && (
         <SurfaceCard>
-          <Text style={styles.emptyTitle}>Sua lista está vazia</Text>
+          <Text style={styles.emptyTitle}>
+            {isManager ? 'Nenhuma solicitação na fila' : 'Sua lista está vazia'}
+          </Text>
           <Text style={styles.emptyBody}>
-            Crie uma solicitação de demonstração para conhecer o fluxo.
+            {isManager
+              ? 'As solicitações recebidas aparecerão aqui.'
+              : 'A lista mostra solicitações vinculadas à conta autenticada. Se esperava ver protocolos existentes, confirme se essa conta é a titular dos registros.'}
           </Text>
         </SurfaceCard>
       )}
@@ -178,8 +247,8 @@ export default function RequestsScreen() {
       ) : null}
       {state.status === 'ready' &&
         state.requests.map((request) => (
+          <View key={request.id}>
           <Pressable
-            key={request.id}
             accessibilityRole="button"
             onPress={() =>
               navigation.navigate('RequestDetails', {
@@ -200,18 +269,35 @@ export default function RequestsScreen() {
                 {STATUS_LABELS[request.status]}
               </Text>
               <Text style={styles.metadata}>
-                {state.categories.get(request.categoryId) ??
+                {request.categoryName ??
+                  state.categories.get(request.categoryId) ??
                   'Categoria não disponível'}
                 {' · '}
                 {formatDate(request.createdAt)}
               </Text>
             </SurfaceCard>
           </Pressable>
+          {isManager &&
+          (request.status === 'RECEBIDA' ||
+            request.status === 'EM_VISTORIA') ? (
+            <ActionButton
+              label={
+                updatingRequestId === request.id
+                  ? 'Atualizando...'
+                  : request.status === 'RECEBIDA'
+                    ? 'Iniciar vistoria'
+                    : 'Marcar como concluída'
+              }
+              onPress={() => void advanceRequestStatus(request)}
+              disabled={updatingRequestId !== null}
+              variant="secondary"
+            />
+          ) : null}
+          </View>
         ))}
-      <Text style={styles.notice}>
-        Estes registros ficam apenas neste aparelho e não foram enviados à
-        Prefeitura.
-      </Text>
+      {state.status === 'ready' && state.notice ? (
+        <Text style={styles.notice}>{state.notice}</Text>
+      ) : null}
     </ScreenFrame>
   );
 }

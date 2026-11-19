@@ -1,5 +1,11 @@
 import { useMemo, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/store/useTheme';
 import { createGlobalStyles } from '@/styles/global';
@@ -19,7 +25,12 @@ export function RoutePlaceholder({
   children,
 }: RoutePlaceholderProps) {
   const { theme } = useTheme();
-  const globalStyles = useMemo(() => createGlobalStyles(theme), [theme]);
+  const { width } = useWindowDimensions();
+  const horizontalPadding = width < 520 ? 16 : theme.spacing.page;
+  const globalStyles = useMemo(
+    () => createGlobalStyles(theme, horizontalPadding),
+    [horizontalPadding, theme],
+  );
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
