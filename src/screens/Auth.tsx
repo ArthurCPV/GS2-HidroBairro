@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ActionButton } from '@/components/ActionButton';
 import { ScreenFrame } from '@/components/ScreenFrame';
 import { SurfaceCard } from '@/components/SurfaceCard';
@@ -7,17 +7,14 @@ import { useAuth } from '@/store/AuthProvider';
 import { useTheme } from '@/store/useTheme';
 
 type AuthMode = 'login' | 'signup';
-type SignupRole = 'CIDADAO' | 'GESTOR';
 
 export default function AuthScreen() {
   const { signIn, signUp, storageError } = useAuth();
   const { theme } = useTheme();
   const [mode, setMode] = useState<AuthMode>('login');
-  const [signupRole, setSignupRole] = useState<SignupRole>('CIDADAO');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [ra, setRa] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const styles = useMemo(
@@ -41,33 +38,6 @@ export default function AuthScreen() {
           color: theme.colors.heading,
           backgroundColor: theme.colors.control,
           fontSize: 15,
-        },
-        roleOptions: {
-          flexDirection: 'row',
-          gap: 8,
-        },
-        roleOption: {
-          flex: 1,
-          minHeight: 44,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingHorizontal: 10,
-          borderWidth: 1,
-          borderColor: theme.colors.border,
-          borderRadius: theme.radius.control,
-          backgroundColor: theme.colors.surface,
-        },
-        roleOptionSelected: {
-          borderColor: theme.colors.action,
-          backgroundColor: theme.colors.actionSurface,
-        },
-        roleOptionText: {
-          color: theme.colors.body,
-          fontSize: 14,
-          fontWeight: '600',
-        },
-        roleOptionTextSelected: {
-          color: theme.colors.action,
         },
         message: {
           color: theme.colors.body,
@@ -107,18 +77,8 @@ export default function AuthScreen() {
       );
       return;
     }
-    if (mode === 'signup' && signupRole === 'GESTOR' && !/^\d{6,}$/.test(ra)) {
-      setError('Informe um RA numérico com pelo menos 6 dígitos.');
-      return;
-    }
     if (mode === 'signup' && password.length < 6) {
       setError('A senha deve ter pelo menos 6 caracteres.');
-      return;
-    }
-    if (mode === 'signup' && signupRole === 'GESTOR') {
-      setError(
-        'O cadastro de gestores ficará disponível quando a API validar essa autorização. Nenhuma conta foi criada e o RA não foi enviado.',
-      );
       return;
     }
 
@@ -162,48 +122,6 @@ export default function AuthScreen() {
                 style={styles.field}
                 value={name}
               />
-              <Text style={styles.label}>Tipo de conta</Text>
-              <View style={styles.roleOptions}>
-                {(['CIDADAO', 'GESTOR'] as const).map((role) => (
-                  <Pressable
-                    key={role}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: signupRole === role }}
-                    onPress={() => {
-                      setSignupRole(role);
-                      setError(null);
-                    }}
-                    style={[
-                      styles.roleOption,
-                      signupRole === role && styles.roleOptionSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.roleOptionText,
-                        signupRole === role && styles.roleOptionTextSelected,
-                      ]}
-                    >
-                      {role === 'CIDADAO' ? 'Cidadão' : 'Gestor'}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              {signupRole === 'GESTOR' && (
-                <>
-                  <Text style={styles.label}>RA</Text>
-                  <TextInput
-                    accessibilityLabel="RA do gestor"
-                    autoCapitalize="none"
-                    keyboardType="number-pad"
-                    onChangeText={setRa}
-                    placeholder="Mínimo de 6 dígitos"
-                    placeholderTextColor={theme.colors.muted}
-                    style={styles.field}
-                    value={ra}
-                  />
-                </>
-              )}
             </>
           )}
           <Text style={styles.label}>E-mail</Text>
@@ -231,19 +149,6 @@ export default function AuthScreen() {
             style={styles.field}
             value={password}
           />
-          {mode === 'signup' && signupRole === 'CIDADAO' && (
-            <Text style={styles.message}>
-              Novas contas de cidadão são criadas pela API Java. Gestores
-              provisionados pela administração também podem entrar por aqui.
-            </Text>
-          )}
-          {mode === 'signup' && signupRole === 'GESTOR' && (
-            <Text style={styles.message}>
-              O RA é solicitado somente para este formulário e não será enviado
-              à API. O cadastro ficará bloqueado até a API validar o perfil de
-              gestor.
-            </Text>
-          )}
           {storageError && (
             <Text accessibilityRole="alert" style={styles.error}>
               {storageError}
@@ -260,9 +165,7 @@ export default function AuthScreen() {
                 ? 'Conectando...'
                 : mode === 'login'
                   ? 'Entrar'
-                  : signupRole === 'GESTOR'
-                    ? 'Criar conta de gestor'
-                    : 'Criar conta'
+                  : 'Criar conta'
             }
             onPress={() => void submit()}
             disabled={isSubmitting}
@@ -279,13 +182,11 @@ export default function AuthScreen() {
           accessibilityRole="link"
           onPress={() => {
             setMode((current) => (current === 'login' ? 'signup' : 'login'));
-            setSignupRole('CIDADAO');
-            setRa('');
             setError(null);
           }}
           style={styles.linkText}
         >
-          {mode === 'login' ? 'Cadastre-se como cidadão' : 'Voltar para entrar'}
+          {mode === 'login' ? 'Cadastre-se' : 'Voltar para entrar'}
         </Text>
       </View>
     </ScreenFrame>
