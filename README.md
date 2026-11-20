@@ -297,7 +297,7 @@ npx tsc --noEmit
 
 ### Vídeo demonstrativo
 
-[Assistir à demonstração no YouTube](https://youtu.be/nE4zYG1QAK8)
+[Assistir à demonstração no YouTube](https://youtu.be/TIzguaWDeI8)
 
 ---
 
